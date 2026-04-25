@@ -1,91 +1,69 @@
-import pygame
-import random
+import pygame, random
 
 pygame.init()
 
-# --- настройки экрана ---
 WIDTH, HEIGHT = 400, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Racer")
-
 clock = pygame.time.Clock()
 
-# --- цвета ---
 WHITE = (255, 255, 255)
 YELLOW = (255, 215, 0)
-BLACK = (0, 0, 0)
 
-# --- игрок ---
 player = pygame.Rect(180, 500, 40, 60)
-player_speed = 5
-
-# --- враг ---
 enemy = pygame.Rect(random.randint(100, 260), -100, 40, 60)
+
+player_speed = 5
 enemy_speed = 5
 
-# --- монеты ---
 coins = []
-coin_radius = 10
-coin_spawn_delay = 30
-coin_timer = 0
-
 score = 0
+coin_timer = 0
 
 font = pygame.font.SysFont("Arial", 24)
 
 
-# --- генерация монеты ---
 def spawn_coin():
-    x = random.randint(100, 260)
-    y = -20
-    return [x, y]
+    return [random.randint(100, 260), -20]
 
 
-# --- основной цикл ---
 running = True
 while running:
-
     screen.fill((50, 50, 50))
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
 
-    # --- управление игроком ---
+    # --- управление ---
     keys = pygame.key.get_pressed()
-    if keys[pygame.K_LEFT] and player.left > 100:
-        player.x -= player_speed
-    if keys[pygame.K_RIGHT] and player.right < 300:
-        player.x += player_speed
+    player.x += (keys[pygame.K_RIGHT] - keys[pygame.K_LEFT]) * player_speed
+    player.x = max(100, min(player.x, 260))
 
-    # --- движение врага ---
+    # --- враг ---
     enemy.y += enemy_speed
     if enemy.y > HEIGHT:
-        enemy.y = -100
-        enemy.x = random.randint(100, 260)
+        enemy = pygame.Rect(random.randint(100, 260), -100, 40, 60)
 
-    # --- спавн монет ---
+    # --- монеты ---
     coin_timer += 1
-    if coin_timer >= coin_spawn_delay:
+    if coin_timer >= 30:
         coins.append(spawn_coin())
         coin_timer = 0
 
-    # --- движение монет ---
-    for coin in coins:
-        coin[1] += 5
+    coins = [[x, y+5] for x, y in coins if y < HEIGHT]
 
-    # --- проверка сбора монет ---
-    for coin in coins[:]:
-        coin_rect = pygame.Rect(coin[0], coin[1], 20, 20)
-
+    # --- сбор монет ---
+    new_coins = []
+    for x, y in coins:
+        coin_rect = pygame.Rect(x, y, 20, 20)
         if player.colliderect(coin_rect):
-            coins.remove(coin)
             score += 1
+        else:
+            new_coins.append([x, y])
+    coins = new_coins
 
-    # --- удаление монет вне экрана ---
-    coins = [c for c in coins if c[1] < HEIGHT]
-
-    # --- collision с врагом ---
+    # --- collision ---
     if player.colliderect(enemy):
         print("GAME OVER")
         running = False
@@ -94,15 +72,12 @@ while running:
     pygame.draw.rect(screen, (0, 0, 255), player)
     pygame.draw.rect(screen, (255, 0, 0), enemy)
 
-    # --- рисуем монеты ---
-    for coin in coins:
-        pygame.draw.circle(screen, YELLOW, (coin[0], coin[1]), coin_radius)
+    for x, y in coins:
+        pygame.draw.circle(screen, YELLOW, (x, y), 10)
 
-    # --- отображение счёта ---
-    score_text = font.render(f"Coins: {score}", True, WHITE)
-    screen.blit(score_text, (WIDTH - 120, 10))
+    screen.blit(font.render(f"Coins: {score}", True, WHITE), (WIDTH-130, 10))
 
-    pygame.display.update()
+    pygame.display.flip()
     clock.tick(60)
 
 pygame.quit()

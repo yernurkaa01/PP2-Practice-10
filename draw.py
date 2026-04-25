@@ -5,16 +5,16 @@ def main():
     screen = pygame.display.set_mode((640, 480))
     clock = pygame.time.Clock()
 
-    radius = 5
-    mode = 'blue'
-    tool = 'brush'  # brush, rect, circle, eraser
+    brush_size = 5
+    color_map = {'r': (255, 0, 0), 'g': (0, 255, 0), 'b': (0, 0, 255)}
+    tool_map = {'1': 'brush', '2': 'rect', '3': 'circle', '4': 'eraser'}
 
-    points = []
-    start_pos = None
+    current_color = color_map['b']
+    current_tool = 'brush'
+
+    points, start = [], None
 
     while True:
-        pressed = pygame.key.get_pressed()
-
         for event in pygame.event.get():
 
             if event.type == pygame.QUIT:
@@ -24,98 +24,54 @@ def main():
                 if event.key == pygame.K_ESCAPE:
                     return
 
-                # --- выбор цвета ---
-                if event.key == pygame.K_r:
-                    mode = 'red'
-                elif event.key == pygame.K_g:
-                    mode = 'green'
-                elif event.key == pygame.K_b:
-                    mode = 'blue'
+                key = pygame.key.name(event.key)
 
-                # --- выбор инструмента ---
-                elif event.key == pygame.K_1:
-                    tool = 'brush'
-                elif event.key == pygame.K_2:
-                    tool = 'rect'
-                elif event.key == pygame.K_3:
-                    tool = 'circle'
-                elif event.key == pygame.K_4:
-                    tool = 'eraser'
+                if key in color_map:
+                    current_color = color_map[key]
+                elif key in tool_map:
+                    current_tool = tool_map[key]
 
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:
-                    start_pos = event.pos
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                start = event.pos
 
             if event.type == pygame.MOUSEBUTTONUP:
-                end_pos = event.pos
+                end = event.pos
 
-                # --- Рисование фигур ---
-                if tool == 'rect' and start_pos:
-                    pygame.draw.rect(screen, get_color(mode),
-                                     (*start_pos,
-                                      end_pos[0] - start_pos[0],
-                                      end_pos[1] - start_pos[1]), 2)
+                if current_tool == 'rect' and start:
+                    pygame.draw.rect(screen, current_color,
+                                     (*start, end[0]-start[0], end[1]-start[1]), 2)
 
-                elif tool == 'circle' and start_pos:
-                    dx = end_pos[0] - start_pos[0]
-                    dy = end_pos[1] - start_pos[1]
-                    radius_circle = int((dx**2 + dy**2) ** 0.5)
-                    pygame.draw.circle(screen, get_color(mode),
-                                       start_pos, radius_circle, 2)
+                elif current_tool == 'circle' and start:
+                    dx, dy = end[0]-start[0], end[1]-start[1]
+                    pygame.draw.circle(screen, current_color,
+                                       start, int((dx**2 + dy**2)**0.5), 2)
 
-                start_pos = None
+                start = None
 
-            if event.type == pygame.MOUSEMOTION:
-                if pygame.mouse.get_pressed()[0]:
+            if event.type == pygame.MOUSEMOTION and pygame.mouse.get_pressed()[0]:
+                if current_tool == 'brush':
+                    points.append(event.pos)
+                    points = points[-256:]
+                elif current_tool == 'eraser':
+                    pygame.draw.circle(screen, (0, 0, 0), event.pos, brush_size*2)
 
-                    if tool == 'brush':
-                        points.append(event.pos)
-                        points = points[-256:]
-
-                    elif tool == 'eraser':
-                        pygame.draw.circle(screen, (0, 0, 0),
-                                           event.pos, radius * 2)
-
-        # --- рисование линий ---
-        if tool == 'brush':
-            i = 0
-            while i < len(points) - 1:
-                drawLineBetween(screen, i, points[i], points[i + 1], radius, mode)
-                i += 1
+        if current_tool == 'brush':
+            for a, b in zip(points, points[1:]):
+                draw_line(screen, a, b, brush_size, current_color)
 
         pygame.display.flip()
         clock.tick(60)
 
 
-def get_color(mode):
-    if mode == 'blue':
-        return (0, 0, 255)
-    elif mode == 'red':
-        return (255, 0, 0)
-    elif mode == 'green':
-        return (0, 255, 0)
+def draw_line(screen, start, end, size, color):
+    dx, dy = start[0]-end[0], start[1]-end[1]
+    steps = max(abs(dx), abs(dy))
 
-
-def drawLineBetween(screen, index, start, end, width, color_mode):
-    c1 = max(0, min(255, 2 * index - 256))
-    c2 = max(0, min(255, 2 * index))
-
-    if color_mode == 'blue':
-        color = (c1, c1, c2)
-    elif color_mode == 'red':
-        color = (c2, c1, c1)
-    elif color_mode == 'green':
-        color = (c1, c2, c1)
-
-    dx = start[0] - end[0]
-    dy = start[1] - end[1]
-    iterations = max(abs(dx), abs(dy))
-
-    for i in range(iterations):
-        progress = i / iterations if iterations != 0 else 0
-        x = int(start[0] * (1 - progress) + end[0] * progress)
-        y = int(start[1] * (1 - progress) + end[1] * progress)
-        pygame.draw.circle(screen, color, (x, y), width)
+    for i in range(steps):
+        t = i/steps if steps else 0
+        x = int(start[0]*(1-t) + end[0]*t)
+        y = int(start[1]*(1-t) + end[1]*t)
+        pygame.draw.circle(screen, color, (x, y), size)
 
 
 main()
